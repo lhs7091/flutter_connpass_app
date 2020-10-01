@@ -12,5 +12,6 @@ ConnpassのAndroidアプリがなくて、簡単に検索可能な機能を作�
 <img src="https://github.com/lhs7091/flutter_connpass_app/blob/master/assets/images/result.gif" width="30%"></img>
 
 ## 追加予定
- ♡ favorite機能(by sqlite)
+ ♡ favorite機能(by sqlite)  
+ bloc//provider function  
 
