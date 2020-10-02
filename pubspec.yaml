@@ -33,6 +33,7 @@ dependencies:
   intl: ^0.16.1
   scroll_app_bar: ^1.0.2
   toast: ^0.1.5
+  provider:
 
 dev_dependencies:
   flutter_test:

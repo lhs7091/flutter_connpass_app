@@ -28,7 +28,6 @@ class ReadAPI {
         _eventList = null;
       }
     }
-
     return _eventList;
   }
 }

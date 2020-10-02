@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_connpass_app/export_path.dart';
+import 'package:provider/provider.dart';
+
 import 'package:scroll_app_bar/scroll_app_bar.dart';
 import 'package:toast/toast.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,8 +12,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   TextEditingController _controller = TextEditingController();
-  ReadAPI _readAPI = ReadAPI();
-  List<Events> _eventList = List<Events>();
 
   String keyword;
   int pageNum = 0;
@@ -23,6 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final formKey = GlobalKey<FormState>();
 
+  int _currentIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -30,6 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ConnpassProviderService connpassProviderService =
+        Provider.of<ConnpassProviderService>(context);
     return Scaffold(
       backgroundColor: Color(0xFFE6F9FF),
       appBar: ScrollAppBar(
@@ -59,11 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           FocusScope.of(context).requestFocus(FocusNode());
                           if (_controller.text.isEmpty)
                             return Toast.show("keywordを入力してください。", context);
-                          setState(() {
-                            pageNum = 0;
-                            keyword = _controller.text;
-                          });
-                          _searchList(_controller.text);
+                          connpassProviderService.setPageNum(0);
+                          connpassProviderService.setKeyword(_controller.text);
+                          connpassProviderService.getSearchList();
                         },
                         icon: Icon(Icons.search),
                       ),
@@ -76,144 +77,67 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         automaticallyImplyLeading: true,
       ),
-      body: Column(
-        children: [
-          Padding(padding: EdgeInsets.symmetric(vertical: 10.0)),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _onRefresh,
-              child: _eventList != null && _eventList.length != 0
-                  ? ListView.builder(
-                      itemCount: _eventList.length,
-                      itemExtent: 120.0,
-                      itemBuilder: (
-                        BuildContext context,
-                        int index,
-                      ) {
-                        return Padding(
-                          padding: EdgeInsets.symmetric(
-                              vertical: 5.0, horizontal: 10.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20.0),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black26,
-                                    offset: Offset(0.0, 3.0),
-                                    blurRadius: 6.0),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 8.0, horizontal: 20.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  GestureDetector(
-                                    onTap: () {
-                                      print(_eventList[
-                                              _eventList.length - index - 1]
-                                          .eventUrl);
-                                      _launchURL(_eventList[
-                                              _eventList.length - index - 1]
-                                          .eventUrl);
-                                    },
-                                    child: Text(
-                                      _eventList[index].title,
-                                      style: TextStyle(
-                                        fontSize: 18.0,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 8.0,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        _eventList[
-                                                _eventList.length - index - 1]
-                                            .startedAt
-                                            .replaceAll("T", "\n")
-                                            .replaceAll("+", "~")
-                                            .replaceFirst(":00", ""),
-                                      ),
-                                      Text(
-                                        _eventList[_eventList.length -
-                                                        index -
-                                                        1]
-                                                    .place !=
-                                                null
-                                            ? _eventList[_eventList.length -
-                                                    index -
-                                                    1]
-                                                .place
-                                            : '無',
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    )
-                  : Center(
-                      child: Text('keywordを入力して、\n検索ボタンを押してください。'),
-                    ),
-            ),
-          ),
+      body: _currentIndex == 0 ? _page1() : _page2(), //_page1(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        items: [
+          _bottomeNavItem(Icons.list, "Searching"),
+          _bottomeNavItem(Icons.favorite, "Favorite")
         ],
+        onTap: onTabTapped,
       ),
     );
   }
 
-  _searchList(String keyword) async {
-    await _readAPI.getEventData(keyword, pageNum).then((value) {
-      if (value == null) {
-        pageNum++;
-        _searchList(keyword);
-      }
-      setState(() {
-        _eventList = value;
-        pageNum += 1;
-      });
-    });
+  // return search page
+  Widget _page1() {
+    ConnpassProviderService connpassProviderService =
+        Provider.of<ConnpassProviderService>(context);
+    return connpassProviderService.getEventList() != null &&
+            connpassProviderService.getEventList().length != 0
+        ? SearchListScreen()
+        : Center(
+            child: isLoading
+                ? CircularProgressIndicator()
+                : Text(
+                    'keywordを入力して、\n検索ボタンを押してください。',
+                    style: TextStyle(fontSize: 18.0),
+                  ),
+          );
   }
 
-  _launchURL(String url) async {
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not launch $url';
-    }
+  // return favorite page
+  Widget _page2() {
+    ConnpassProviderService connpassProviderService =
+        Provider.of<ConnpassProviderService>(context);
+    return connpassProviderService.getFavoriteList() != null &&
+            connpassProviderService.getFavoriteList().length != 0
+        ? FavoriteListScreen()
+        : Center(
+            child: Text(
+              'Favoriteがありません。',
+              style: TextStyle(fontSize: 18.0),
+            ),
+          );
   }
 
-  Future<Null> _onRefresh() async {
-    // monitor network fetch
-    await Future.delayed(Duration(milliseconds: 1000));
-    // if failed,use loadFailed(),if no data return,use LoadNodata()
-    await _readAPI.getEventData(keyword, pageNum).then((List<Events> value) {
-      setState(() {
-        pageNum += 1;
-        if (value != null) {
-          value.forEach((element) {
-            _eventList.add(element);
-          });
-        } else {
-          _onRefresh();
-        }
-      });
+  _bottomeNavItem(IconData iconData, String title) {
+    return BottomNavigationBarItem(
+        icon: new Icon(
+          iconData,
+          color: Color(0xFFE9E9E9),
+        ),
+        activeIcon: new Icon(
+          iconData,
+          color: Color(0xFF6D7381),
+        ),
+        label: title);
+  }
+
+  void onTabTapped(int index) {
+    if (!mounted) return;
+    setState(() {
+      _currentIndex = index;
     });
   }
 }
